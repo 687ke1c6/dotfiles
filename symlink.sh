@@ -96,9 +96,12 @@ case "$MODE" in
         # Write a plain wrapper file instead of a symlink, since some
         # consumers (e.g. Termux:Tasker) refuse to run symlinked scripts.
         # The wrapper just execs the real script back in this repo,
-        # forwarding any arguments.
+        # forwarding any arguments. Reuse the source script's own shebang
+        # rather than assuming /usr/bin/env exists in the target
+        # environment (it doesn't on Android/Termux).
+        SHEBANG="$(head -n 1 "$SOURCE")"
         cat > "$TARGET" <<WRAPPER_EOF
-#!/usr/bin/env sh
+$SHEBANG
 exec "$SOURCE" "\$@"
 WRAPPER_EOF
         chmod +x "$TARGET"
