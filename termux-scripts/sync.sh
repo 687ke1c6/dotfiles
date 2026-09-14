@@ -8,6 +8,8 @@
 ARGS_HASH=$(printf '%s|%s' "$TARGET" "$LOCAL_PATH" | sha256sum | cut -c1-6)
 
 LOCAL_STATE_FILE="${LOCAL_STATE_FILE:-$HOME/.last_sync_time_${ARGS_HASH}}"
+echo "Using state file: ${LOCAL_STATE_FILE}"
+
 COOLDOWN_MINUTES="${COOLDOWN_MINUTES:-60}"
 
 # Convert minutes to seconds
