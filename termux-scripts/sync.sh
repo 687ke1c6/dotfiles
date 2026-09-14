@@ -39,14 +39,16 @@ echo "Last sync was more than ${COOLDOWN_MINUTES} minutes ago (or never). Starti
 
 # Step 2: Only pass -e ssh when TARGET is a user@host:path SSH spec.
 # Exclude rsync daemon syntax (host::module or user@host::module).
+# Built with `set --` (not a plain string) so the whole ssh command
+# stays one argument to -e instead of being word-split.
 case "$TARGET" in
-    *::*) RSYNC_ARGS="" ;;
-    *@*:*) RSYNC_ARGS="-e ssh -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2" ;;
-    *) RSYNC_ARGS="" ;;
+    *::*) set -- ;;
+    *@*:*) set -- -e "ssh -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2" ;;
+    *) set -- ;;
 esac
 
 # Step 3: Run rsync with timeouts and socket keepalives
-rsync -avz --timeout=30 $RSYNC_ARGS "$LOCAL_PATH" "$TARGET"
+rsync -avz --timeout=30 "$@" "$LOCAL_PATH" "$TARGET"
 
 # Step 4: Update timestamps only if rsync succeeds
 if [ $? -eq 0 ]; then
