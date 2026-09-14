@@ -8,10 +8,10 @@
 ARGS_HASH=$(printf '%s|%s' "$TARGET" "$LOCAL_PATH" | sha256sum | cut -c1-6)
 
 LOCAL_STATE_FILE="${LOCAL_STATE_FILE:-$HOME/.last_sync_time_${ARGS_HASH}}"
-HOURS_THRESHOLD=1
+COOLDOWN_MINUTES="${COOLDOWN_MINUTES:-60}"
 
-# Convert hours to seconds
-THRESHOLD_SECS=$((HOURS_THRESHOLD * 3600))
+# Convert minutes to seconds
+COOLDOWN_SECS=$((COOLDOWN_MINUTES * 60))
 CURRENT_TIME=$(date +%s)
 
 # Read local timestamp cache (default to 0 if file doesn't exist)
@@ -29,13 +29,13 @@ fi
 TIME_DIFF=$((CURRENT_TIME - LAST_TIME))
 
 # Step 1: Check time threshold locally BEFORE making network requests
-if [ "$TIME_DIFF" -lt "$THRESHOLD_SECS" ]; then
-    ELAPSED_HOURS=$((TIME_DIFF / 3600))
-    echo "Skipping sync: Last sync was only ${ELAPSED_HOURS} hour(s) ago."
+if [ "$TIME_DIFF" -lt "$COOLDOWN_SECS" ]; then
+    ELAPSED_MINUTES=$((TIME_DIFF / 60))
+    echo "Skipping sync: Last sync was only ${ELAPSED_MINUTES} minute(s) ago."
     exit 0
 fi
 
-echo "Last sync was more than ${HOURS_THRESHOLD} hours ago (or never). Starting rsync..."
+echo "Last sync was more than ${COOLDOWN_MINUTES} minutes ago (or never). Starting rsync..."
 
 # Step 2: Only pass -e ssh when TARGET is a user@host:path SSH spec.
 # Exclude rsync daemon syntax (host::module or user@host::module).
