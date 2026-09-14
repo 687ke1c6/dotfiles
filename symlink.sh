@@ -5,27 +5,33 @@ DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
     cat <<EOF
-Usage: symlink.sh --script=<type> [--target=<path>]
+Usage: symlink.sh --script=<type> [--target=<path>] [--mode=<mode>]
 
-Symlinks a script from this repo to a target location and makes it
-executable.
+Links a script from this repo to a target location and makes it
+executable, either as a symlink or as a wrapper file. A wrapper is a
+plain file that execs the real script back in this repo; use it where
+symlinks aren't accepted (e.g. Termux:Tasker).
 
 Options:
   --script=<type>   Which script to link (required). Supported types:
                        termux-sync                termux-scripts/sync.sh
                        termux-power-connected      termux-scripts/power_connected.sh
                        termux-power-disconnected   termux-scripts/power_disconnected.sh
-  --target=<path>   Destination path for the symlink. Defaults to the
+  --target=<path>   Destination path for the link. Defaults to the
                      type's standard location:
                        termux-sync                ~/.termux/tasker/sync.sh
                        termux-power-connected      ~/.termux/tasker/power_connected.sh
                        termux-power-disconnected   ~/.termux/tasker/power_disconnected.sh
+  --mode=<mode>     How to link the script. One of:
+                       symlink   create a symlink (default)
+                       wrapper   write a plain file that execs the source script
   -h, --help        Show this help message and exit
 EOF
 }
 
 SCRIPT_TYPE=""
 TARGET=""
+MODE=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -34,6 +40,9 @@ for arg in "$@"; do
             ;;
         --target=*)
             TARGET="${arg#--target=}"
+            ;;
+        --mode=*)
+            MODE="${arg#--mode=}"
             ;;
         -h|--help)
             usage
@@ -73,9 +82,31 @@ case "$SCRIPT_TYPE" in
 esac
 
 TARGET="${TARGET:-$DEFAULT_TARGET}"
+MODE="${MODE:-symlink}"
 
 mkdir -p "$(dirname "$TARGET")"
-ln -sf "$SOURCE" "$TARGET"
 chmod +x "$SOURCE"
 
-echo "Symlink created: $TARGET -> $SOURCE"
+case "$MODE" in
+    symlink)
+        ln -sf "$SOURCE" "$TARGET"
+        echo "Symlink created: $TARGET -> $SOURCE"
+        ;;
+    wrapper)
+        # Write a plain wrapper file instead of a symlink, since some
+        # consumers (e.g. Termux:Tasker) refuse to run symlinked scripts.
+        # The wrapper just execs the real script back in this repo,
+        # forwarding any arguments.
+        cat > "$TARGET" <<WRAPPER_EOF
+#!/usr/bin/env sh
+exec "$SOURCE" "\$@"
+WRAPPER_EOF
+        chmod +x "$TARGET"
+        echo "Wrapper installed: $TARGET -> $SOURCE"
+        ;;
+    *)
+        echo "Error: unknown mode '$MODE'" >&2
+        usage
+        exit 1
+        ;;
+esac
